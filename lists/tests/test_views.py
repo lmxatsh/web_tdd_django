@@ -59,6 +59,31 @@ class ListViewTest(TestCase):
         response = self.client.get(f'/lists/{list_.id}/')
         self.assertTemplateUsed(response, 'list.html')
 
+    def test_can_save_a_POST_to_an_existing_list(self):
+        list_a = List.objects.create()
+        list_b = List.objects.create()
+
+        self.client.post(f'/lists/{list_a.id}/', data={'item_text': 'new item of list_a'})        
+        self.assertEqual(Item.objects.count(), 1)
+        self.assertEqual(Item.objects.get(list=list_a).text, 'new item of list_a')
+        self.assertEqual(Item.objects.get(list=list_a).list, list_a)
+
+    def test_redirect_to_list_view(self):
+        list_a = List.objects.create()
+        list_b = List.objects.create()
+        response = self.client.post(f'/lists/{list_a.id}/', data={'item_text': 'new item of list_a'})
+        self.assertRedirects(response, f'/lists/{list_a.id}/')
+
+    
+    def test_validationerror_end_up_on_lists_page(self):
+        list_ = List.objects.create()
+        response = self.client.post(f'/lists/{list_.id}/', data={'item_text': ''})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'list.html')
+        err_msg = 'empty item not allowed'
+        self.assertContains(response, err_msg)
+
+
 
 class NewListTest(TestCase):
     def test_can_save_POST_request(self):
@@ -71,26 +96,19 @@ class NewListTest(TestCase):
         response = self.client.post('/lists/new', data={'item_text': 'A new list item'})
         new_list = List.objects.first()
         self.assertEqual(response['location'], f'/lists/{new_list.id}/')
-
-    def test_can_save_a_POST_to_an_existing_list(self):
-        list_a = List.objects.create()
-        list_b = List.objects.create()
-
-        self.client.post(f'/lists/{list_a.id}/add_item', data={'item_text': 'new item of list_a'})        
-        self.assertEqual(Item.objects.count(), 1)
-        self.assertEqual(Item.objects.get(list=list_a).text, 'new item of list_a')
-
-        self.client.post(f'/lists/{list_b.id}/add_item', data={'item_text': 'new item of list_b'})
-        self.assertEqual(Item.objects.count(), 2)
-        self.assertEqual(Item.objects.get(list=list_b).text, 'new item of list_b')
-
-    
-    def test_redirect_to_list_view(self):
-        list_a = List.objects.create()
-        list_b = List.objects.create()
-        response = self.client.post(f'/lists/{list_a.id}/add_item', data={'item_text': 'new item of list_a'})
-        self.assertRedirects(response, f'/lists/{list_a.id}/')
         
+    def test_validationerror_sent_back_to_homepage(self):
+        response = self.client.post('/lists/new', data={'item_text': ''})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'home.html')
+        err_msg = 'empty item not allowed'
+        self.assertContains(response, err_msg)
+
+    def test_invalid_item_arent_saved(self):
+        response = self.client.post('/lists/new', data={'item_text': ''})
+        self.assertEqual(List.objects.count(), 0)
+        self.assertEqual(Item.objects.count(), 0)
+
 
 
 
