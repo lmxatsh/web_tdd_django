@@ -3,6 +3,7 @@ from django.test import TestCase
 from lists.views import home_page
 from django.http import HttpRequest
 from lists.models import Item, List
+from lists.forms import ItemForm, EMPTY_ITEM_ERROR
 
 # Create your tests here.
 
@@ -17,6 +18,9 @@ class HomePageTest(TestCase):
         self.client.get('/')
         self.assertEqual(Item.objects.count(), 0)
     
+    def test_home_page_uses_item_form(self):
+        response = self.client.get('/')
+        self.assertIsInstance(response.context['form'], ItemForm)
 
 class ListViewTest(TestCase):
 
@@ -95,14 +99,20 @@ class NewListTest(TestCase):
     def test_redirect_after_POST(self):
         response = self.client.post('/lists/new', data={'item_text': 'A new list item'})
         new_list = List.objects.first()
-        self.assertEqual(response['location'], f'/lists/{new_list.id}/')
-        
-    def test_validationerror_sent_back_to_homepage(self):
+        self.assertEqual(response['location'], f'/lists/{new_list.id}/')     
+
+    def test_for_invalid_input_renders_home_template(self):
         response = self.client.post('/lists/new', data={'item_text': ''})
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'home.html')
-        err_msg = 'empty item not allowed'
-        self.assertContains(response, err_msg)
+
+    def test_validation_errors_shown_on_home_page(self):
+        response = self.client.post('/lists/new', data={'item_text': ''})
+        self.assertContains(response, EMPTY_ITEM_ERROR)
+
+    def test_for_invalid_input_passes_form_to_template(self):
+        response = self.client.post('/lists/new', data={'item_text': ''})
+        self.assertIsInstance(response.context['form'], ItemForm)
 
     def test_invalid_item_arent_saved(self):
         response = self.client.post('/lists/new', data={'item_text': ''})
