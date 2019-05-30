@@ -87,6 +87,16 @@ class ListViewTest(TestCase):
         err_msg = 'empty item not allowed'
         self.assertContains(response, err_msg)
 
+    def test_duplicate_item_validation_erros_endup_on_list_pages(self):
+        list_a = List.objects.create()
+        item_a = Item.objects.create(list=list_a, text='item_a')
+        response = self.client.post(
+            f'/lists/{list_a.id}/',
+            data={'item_text':'item_a'}
+        )
+        self.assertTemplateUsed(response, 'list.html')
+        self.assertContains(response, 'duplicate item')
+
 
 
 class NewListTest(TestCase):
